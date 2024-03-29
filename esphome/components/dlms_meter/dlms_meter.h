@@ -10,6 +10,8 @@
 #include "mbedtls/gcm.h"
 #endif
 
+#include <vector>
+
 static const char *const DLMS_METER_VERSION = "0.9.1";
 static const char *const TAG = "dlms_meter";
 

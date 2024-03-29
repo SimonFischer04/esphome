@@ -2,7 +2,9 @@
 #include "mbus.h"
 #include "dlms.h"
 #include "obis.h"
+#include <vector>
 #include "esphome/core/log.h"
+
 #if defined(ESP8266)
 #include <bearssl/bearssl.h>
 #endif
@@ -115,7 +117,12 @@ void DlmsMeterComponent::loop() {
     uint16_t messageLength = mbusPayload[DLMS_LENGTH_OFFSET];
     int headerOffset = 0;
 
-    if (messageLength == 0x82) {
+    // TODO
+    if (messageLength == 0x81) {
+      ESP_LOGV(TAG, "EVN detected");
+      messageLength = mbusPayload[DLMS_LENGTH_OFFSET + 1];
+      headerOffset = 1;
+    } else if (messageLength == 0x82) {
       ESP_LOGV(TAG, "DLMS: Message length > 127");
 
       memcpy(&messageLength, &mbusPayload[DLMS_LENGTH_OFFSET + 1], 2);
@@ -133,7 +140,7 @@ void DlmsMeterComponent::loop() {
       return abort();
     }
 
-    if (mbusPayload[headerOffset + DLMS_SECBYTE_OFFSET] != 0x21)  // Only certain security suite is supported (0x21)
+    if (mbusPayload[headerOffset + DLMS_SECBYTE_OFFSET] != 0x21 && mbusPayload[headerOffset + DLMS_SECBYTE_OFFSET] != 0x20)  // Only certain security suite is supported (0x21)
     {
       ESP_LOGE(TAG, "DLMS: Unsupported security control byte");
       return abort();
