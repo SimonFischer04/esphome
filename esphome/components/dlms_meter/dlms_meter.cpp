@@ -372,6 +372,12 @@ void DlmsMeterComponent::loop() {
           else
             floatValue = uint16Value;  // No decimal places
 
+        // TODO!
+          if (codeType == CodeType::VoltageL1) {
+            ESP_LOGW(TAG, "TF %f", floatValue);
+            this->wtf_sensor_->publish_state(floatValue);
+          }
+
           if (codeType == CodeType::VoltageL1 && this->voltage_l1 != NULL && this->voltage_l1->state != floatValue)
             this->voltage_l1->publish_state(floatValue);
           else if (codeType == CodeType::VoltageL2 && this->voltage_l2 != NULL && this->voltage_l2->state != floatValue)

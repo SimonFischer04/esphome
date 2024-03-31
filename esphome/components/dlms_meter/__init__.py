@@ -6,6 +6,7 @@ from esphome.const import CONF_ID
 CODEOWNERS = ["@SimonFischer04"]
 DEPENDENCIES = ["uart"]
 
+CONF_DLMS_METER_ID = "dlms_meter_id"
 CONF_DECRYPTION_KEY = "decryption_key"
 
 dlms_meter_component_ns = cg.esphome_ns.namespace("dlms_meter")
