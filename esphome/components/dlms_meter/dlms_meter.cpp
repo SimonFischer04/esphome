@@ -18,12 +18,6 @@ namespace dlms_meter {
 
 void DlmsMeterComponent::setup() {
   ESP_LOGI(TAG, "DLMS smart meter component v%s started", DLMS_METER_VERSION);
-
-  // TODO
-  // EVN sample key
-  uint8_t key[] = {0x36, 0xC6, 0x66, 0x39, 0xE4, 0x8A, 0x8C, 0xA4, 0xD6, 0xBC, 0x8B, 0x28, 0x2A, 0x79, 0x3B, 0xBB};
-  // uint8_t key[] = {0xBC, 0x02, 0xF5, 0x42, 0xE6, 0x71, 0x9E, 0xD6, 0xDF, 0xE8, 0x4C, 0x6F, 0x18, 0x0C, 0x7A, 0x68};
-  this->set_key(key, 16);
 }
 
 void DlmsMeterComponent::dump_config() {
@@ -550,7 +544,7 @@ uint32_t DlmsMeterComponent::swap_uint32(uint32_t val) {
   return (val << 16) | (val >> 16);
 }
 
-void DlmsMeterComponent::set_key(uint8_t key[], size_t keyLength) {
+void DlmsMeterComponent::set_decryption_key(const uint8_t key[], size_t keyLength) {
   memcpy(&this->key[0], &key[0], keyLength);
   this->keyLength = keyLength;
 }

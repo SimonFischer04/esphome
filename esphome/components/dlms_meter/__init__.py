@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart
-from esphome.const import CONF_ID
+from esphome.const import CONF_ID, CONF_RAW_DATA_ID
 
 CODEOWNERS = ["@SimonFischer04"]
 DEPENDENCIES = ["uart"]
@@ -14,11 +14,31 @@ DlmsMeterComponent = dlms_meter_component_ns.class_(
     "DlmsMeterComponent", cg.Component, uart.UARTDevice
 )
 
+
+def validate_key(value):
+    value = cv.string_strict(value)
+    parts = [value[i : i + 2] for i in range(0, len(value), 2)]
+    if len(parts) != 16:
+        raise cv.Invalid("Decryption key must consist of 16 hexadecimal numbers")
+    parts_int = []
+    if any(len(part) != 2 for part in parts):
+        raise cv.Invalid("Decryption key must be format XX")
+    for part in parts:
+        try:
+            parts_int.append(int(part, 16))
+        except ValueError:
+            # pylint: disable=raise-missing-from
+            raise cv.Invalid("Decryption key must be hex values from 00 to FF")
+
+    return "".join(f"{part:02X}" for part in parts_int)
+
+
 CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DlmsMeterComponent),
-            cv.Required(CONF_DECRYPTION_KEY): cv.string,
+            cv.Required(CONF_DECRYPTION_KEY): validate_key,
+            cv.GenerateID(CONF_RAW_DATA_ID): cv.declare_id(cg.uint8),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -31,4 +51,7 @@ async def to_code(config):
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
 
-    # cg.add(var.set_my_required_key(config[CONF_DECRYPTION_KEY]))
+    key_hex = config[CONF_DECRYPTION_KEY]
+    rhs_key_bytes = [int(key_hex[i : i + 2], 16) for i in range(0, len(key_hex), 2)]
+    key_array = cg.progmem_array(config[CONF_RAW_DATA_ID], rhs_key_bytes)
+    cg.add(var.set_decryption_key(key_array, len(rhs_key_bytes)))

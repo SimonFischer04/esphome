@@ -65,7 +65,7 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   void set_evnspecial_sensor(sensor::Sensor *power_factor, text_sensor::TextSensor *meternumber);
   // void enable_mqtt(mqtt::MQTTClientComponent *mqtt_client, const char *topic);
 
-  void set_key(uint8_t key[], size_t keyLength);
+  void set_decryption_key(const uint8_t *key, size_t keyLength);
 
   void publish_sensors(MeterData &data) {
 #define DLMS_METER_PUBLISH_SENSOR(s) \
