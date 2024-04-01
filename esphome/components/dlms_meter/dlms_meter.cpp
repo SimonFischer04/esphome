@@ -208,6 +208,7 @@ void DlmsMeterComponent::loop() {
 
     ESP_LOGV(TAG, "Decoding payload");
 
+    MeterData data;
     int currentPosition = DECODER_START_OFFSET;
 
     do {
@@ -372,10 +373,18 @@ void DlmsMeterComponent::loop() {
           else
             floatValue = uint16Value;  // No decimal places
 
-        // TODO!
+          // TODO!
           if (codeType == CodeType::VoltageL1) {
             ESP_LOGW(TAG, "TF %f", floatValue);
             this->wtf_sensor_->publish_state(floatValue);
+            data.wtf = floatValue;
+          }
+
+          if (codeType == CodeType::CurrentL1) {
+            ESP_LOGW(TAG, "TF2 %f", floatValue);
+            // DLMS_METER_PUBLISH_SENSOR(wtf, floatValue);
+            // this->wtf_sensor_->publish_state(floatValue);
+            data.wtf2 = floatValue;
           }
 
           if (codeType == CodeType::VoltageL1 && this->voltage_l1 != NULL && this->voltage_l1->state != floatValue)
@@ -475,6 +484,7 @@ void DlmsMeterComponent::loop() {
     this->receiveBuffer.clear();  // Reset buffer
 
     ESP_LOGI(TAG, "Received valid data");
+    this->publish_sensors(data);
 
     /*if(this->mqtt_client != NULL)
     {

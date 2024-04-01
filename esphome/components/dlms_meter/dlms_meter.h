@@ -22,7 +22,7 @@ namespace dlms_meter {
 
 #if !defined(DLMS_METER_SENSOR_LIST) && !defined(DLMS_METER_TEXT_SENSOR_LIST)
 // Neither set, set it to a dummy value to not break build
-#define DLMS_METER_TEXT_SENSOR_LIST(F, SEP) F(identification)
+#define DLMS_METER_TEXT_SENSOR_LIST(F, SEP)
 #endif
 
 #if defined(DLMS_METER_SENSOR_LIST) && defined(DLMS_METER_TEXT_SENSOR_LIST)
@@ -42,10 +42,14 @@ namespace dlms_meter {
 #define DLMS_METER_DATA_SENSOR(s) s
 #define DLMS_METER_COMMA ,
 
+struct MeterData {
+  float wtf;
+  float wtf2;
+};
+
 class DlmsMeterComponent : public Component, public uart::UARTDevice {
  public:
   DlmsMeterComponent() = default;
-  ;
 
   void setup() override;
   void dump_config() override;
@@ -63,16 +67,20 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
 
   void set_key(uint8_t key[], size_t keyLength);
 
+  void publish_sensors(MeterData &data) {
 #define DLMS_METER_PUBLISH_SENSOR(s) \
-  if (this->s_##s##_ != nullptr) \
-    s_##s##_->publish_state(data.s);
+  if (this->s##_sensor_ != nullptr) \
+    s##_sensor_->publish_state(data.s);
+    DLMS_METER_SENSOR_LIST(DLMS_METER_PUBLISH_SENSOR, )
 
 #define DLMS_METER_PUBLISH_TEXT_SENSOR(s) \
-  if (this->s_##s##_ != nullptr) \
-    s_##s##_->publish_state(data.s.c_str());
+  if (this->s##_text_sensor_ != nullptr) \
+    s##_text_sensor_->publish_state(data.s.c_str());
+    DLMS_METER_TEXT_SENSOR_LIST(DLMS_METER_PUBLISH_TEXT_SENSOR, )
+  }
 
   DLMS_METER_SENSOR_LIST(SUB_SENSOR, )
-  SUB_SENSOR(TEEST)
+  // SUB_SENSOR(TEEST)
 
  private:
   std::vector<uint8_t> receiveBuffer;  // Stores the packet currently being received
