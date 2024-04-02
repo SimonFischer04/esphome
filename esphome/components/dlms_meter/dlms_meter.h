@@ -43,8 +43,21 @@ namespace dlms_meter {
 #define DLMS_METER_COMMA ,
 
 struct MeterData {
-  float wtf;
-  float wtf2;
+  float voltage_l1;             // Voltage L1
+  float voltage_l2;             // Voltage L2
+  float voltage_l3;             // Voltage L3
+  float current_l1;             // Current L1
+  float current_l2;             // Current L2
+  float current_l3;             // Current L3
+  float active_power_plus;      // Active power taken from grid
+  float active_power_minus;     // Active power put into grid
+  float active_energy_plus;     // Active energy taken from grid
+  float active_energy_minus;    // Active energy put into grid
+  float reactive_energy_plus;   // Reactive energy taken from grid
+  float reactive_energy_minus;  // Reactive energy put into grid
+
+  // EVN
+  float power_factor;  // Power Factor
 };
 
 class DlmsMeterComponent : public Component, public uart::UARTDevice {
@@ -54,16 +67,6 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   void setup() override;
   void dump_config() override;
   void loop() override;
-
-  void set_voltage_sensors(sensor::Sensor *voltage_l1, sensor::Sensor *voltage_l2, sensor::Sensor *voltage_l3);
-  void set_current_sensors(sensor::Sensor *current_l1, sensor::Sensor *current_l2, sensor::Sensor *current_l3);
-
-  void set_active_power_sensors(sensor::Sensor *active_power_plus, sensor::Sensor *active_power_minus);
-  void set_active_energy_sensors(sensor::Sensor *active_energy_plus, sensor::Sensor *active_energy_minus);
-  void set_reactive_energy_sensors(sensor::Sensor *reactive_energy_plus, sensor::Sensor *reactive_energy_minus);
-  void set_timestamp_sensor(text_sensor::TextSensor *timestamp);
-  void set_evnspecial_sensor(sensor::Sensor *power_factor, text_sensor::TextSensor *meternumber);
-  // void enable_mqtt(mqtt::MQTTClientComponent *mqtt_client, const char *topic);
 
   void set_decryption_key(const uint8_t *key, size_t keyLength);
 
@@ -80,7 +83,6 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   }
 
   DLMS_METER_SENSOR_LIST(SUB_SENSOR, )
-  // SUB_SENSOR(TEEST)
 
  private:
   std::vector<uint8_t> receiveBuffer;  // Stores the packet currently being received
@@ -90,36 +92,14 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   uint8_t key[16];   // Stores the decryption key
   size_t keyLength;  // Stores the decryption key length (usually 16 bytes)
 
-  const char *topic;  // Stores the MQTT topic
-
 #if defined(ESP32)
   mbedtls_gcm_context aes;  // AES context used for decryption
 #endif
 
-  sensor::Sensor *voltage_l1 = NULL;  // Voltage L1
-  sensor::Sensor *voltage_l2 = NULL;  // Voltage L2
-  sensor::Sensor *voltage_l3 = NULL;  // Voltage L3
-
-  sensor::Sensor *current_l1 = NULL;  // Current L1
-  sensor::Sensor *current_l2 = NULL;  // Current L2
-  sensor::Sensor *current_l3 = NULL;  // Current L3
-
-  sensor::Sensor *active_power_plus = NULL;   // Active power taken from grid
-  sensor::Sensor *active_power_minus = NULL;  // Active power put into grid
-
-  sensor::Sensor *active_energy_plus = NULL;   // Active energy taken from grid
-  sensor::Sensor *active_energy_minus = NULL;  // Active energy put into grid
-
-  sensor::Sensor *reactive_energy_plus = NULL;   // Reactive energy taken from grid
-  sensor::Sensor *reactive_energy_minus = NULL;  // Reactive energy put into grid
-
   text_sensor::TextSensor *timestamp = NULL;  // Text sensor for the timestamp value
 
   // EVN Special
-  sensor::Sensor *power_factor = NULL;          // Power Factor
   text_sensor::TextSensor *meternumber = NULL;  // Text sensor for the meterNumber value
-
-  // mqtt::MQTTClientComponent *mqtt_client = NULL;
 
   uint16_t swap_uint16(uint16_t val);
   uint32_t swap_uint32(uint32_t val);

@@ -202,7 +202,7 @@ void DlmsMeterComponent::loop() {
 
     ESP_LOGV(TAG, "Decoding payload");
 
-    MeterData data;
+    MeterData data{};
     int currentPosition = DECODER_START_OFFSET;
 
     do {
@@ -332,26 +332,20 @@ void DlmsMeterComponent::loop() {
 
           floatValue = uint32Value;  // Ignore decimal digits for now
 
-          if (codeType == CodeType::ActivePowerPlus && this->active_power_plus != NULL &&
-              this->active_power_plus->state != floatValue)
-            this->active_power_plus->publish_state(floatValue);
-          else if (codeType == CodeType::ActivePowerMinus && this->active_power_minus != NULL &&
-                   this->active_power_minus->state != floatValue)
-            this->active_power_minus->publish_state(floatValue);
+          if (codeType == CodeType::ActivePowerPlus)
+            data.active_power_plus = floatValue;
+          else if (codeType == CodeType::ActivePowerMinus)
+            data.active_power_minus = floatValue;
 
-          else if (codeType == CodeType::ActiveEnergyPlus && this->active_energy_plus != NULL &&
-                   this->active_energy_plus->state != floatValue)
-            this->active_energy_plus->publish_state(floatValue);
-          else if (codeType == CodeType::ActiveEnergyMinus && this->active_energy_minus != NULL &&
-                   this->active_energy_minus->state != floatValue)
-            this->active_energy_minus->publish_state(floatValue);
+          else if (codeType == CodeType::ActiveEnergyPlus)
+            data.active_energy_plus = floatValue;
+          else if (codeType == CodeType::ActiveEnergyMinus)
+            data.active_energy_minus = floatValue;
 
-          else if (codeType == CodeType::ReactiveEnergyPlus && this->reactive_energy_plus != NULL &&
-                   this->reactive_energy_plus->state != floatValue)
-            this->reactive_energy_plus->publish_state(floatValue);
-          else if (codeType == CodeType::ReactiveEnergyMinus && this->reactive_energy_minus != NULL &&
-                   this->reactive_energy_minus->state != floatValue)
-            this->reactive_energy_minus->publish_state(floatValue);
+          else if (codeType == CodeType::ReactiveEnergyPlus)
+            data.reactive_energy_plus = floatValue;
+          else if (codeType == CodeType::ReactiveEnergyMinus)
+            data.reactive_energy_minus = floatValue;
 
           break;
         case DataType::LongUnsigned:
@@ -367,38 +361,23 @@ void DlmsMeterComponent::loop() {
           else
             floatValue = uint16Value;  // No decimal places
 
-          // TODO!
-          if (codeType == CodeType::VoltageL1) {
-            ESP_LOGW(TAG, "TF %f", floatValue);
-            this->wtf_sensor_->publish_state(floatValue);
-            data.wtf = floatValue;
-          }
+          if (codeType == CodeType::VoltageL1)
+            data.voltage_l1 = floatValue;
+          else if (codeType == CodeType::VoltageL2)
+            data.voltage_l2 = floatValue;
+          else if (codeType == CodeType::VoltageL3)
+            data.voltage_l3 = floatValue;
 
-          if (codeType == CodeType::CurrentL1) {
-            ESP_LOGW(TAG, "TF2 %f", floatValue);
-            // DLMS_METER_PUBLISH_SENSOR(wtf, floatValue);
-            // this->wtf_sensor_->publish_state(floatValue);
-            data.wtf2 = floatValue;
-          }
-
-          if (codeType == CodeType::VoltageL1 && this->voltage_l1 != NULL && this->voltage_l1->state != floatValue)
-            this->voltage_l1->publish_state(floatValue);
-          else if (codeType == CodeType::VoltageL2 && this->voltage_l2 != NULL && this->voltage_l2->state != floatValue)
-            this->voltage_l2->publish_state(floatValue);
-          else if (codeType == CodeType::VoltageL3 && this->voltage_l3 != NULL && this->voltage_l3->state != floatValue)
-            this->voltage_l3->publish_state(floatValue);
-
-          else if (codeType == CodeType::CurrentL1 && this->current_l1 != NULL && this->current_l1->state != floatValue)
-            this->current_l1->publish_state(floatValue);
-          else if (codeType == CodeType::CurrentL2 && this->current_l2 != NULL && this->current_l2->state != floatValue)
-            this->current_l2->publish_state(floatValue);
-          else if (codeType == CodeType::CurrentL3 && this->current_l3 != NULL && this->current_l3->state != floatValue)
-            this->current_l3->publish_state(floatValue);
+          else if (codeType == CodeType::CurrentL1)
+            data.current_l1 = floatValue;
+          else if (codeType == CodeType::CurrentL2)
+            data.current_l2 = floatValue;
+          else if (codeType == CodeType::CurrentL3)
+            data.current_l3 = floatValue;
 
 #if defined(PROVIDER_EVN)
-          else if (codeType == CodeType::PowerFactor && this->power_factor != NULL &&
-                   this->power_factor->state != floatValue)
-            this->power_factor->publish_state(floatValue / 1000.0);
+          else if (codeType == CodeType::PowerFactor)
+            data.power_factor = floatValue / 1000.0;
 #endif
 
           break;
@@ -478,60 +457,8 @@ void DlmsMeterComponent::loop() {
     this->receiveBuffer.clear();  // Reset buffer
 
     ESP_LOGI(TAG, "Received valid data");
+    // TODO: print data
     this->publish_sensors(data);
-
-    /*if(this->mqtt_client != NULL)
-    {
-        this->mqtt_client->publish_json(this->topic, [=](JsonObject root)
-        {
-            if(this->voltage_l1 != NULL)
-            {
-                root["voltage_l1"] = this->voltage_l1->state;
-                root["voltage_l2"] = this->voltage_l2->state;
-                root["voltage_l3"] = this->voltage_l3->state;
-            }
-
-            if(this->current_l1 != NULL)
-            {
-                root["current_l1"] = this->current_l1->state;
-                root["current_l2"] = this->current_l2->state;
-                root["current_l3"] = this->current_l3->state;
-            }
-
-            if(this->active_power_plus != NULL)
-            {
-                root["active_power_plus"] = this->active_power_plus->state;
-                root["active_power_minus"] = this->active_power_minus->state;
-            }
-
-            if(this->active_energy_plus != NULL)
-            {
-                root["active_energy_plus"] = this->active_energy_plus->state;
-                root["active_energy_minus"] = this->active_energy_minus->state;
-            }
-
-            if(this->reactive_energy_plus != NULL)
-            {
-                root["reactive_energy_plus"] = this->reactive_energy_plus->state;
-                root["reactive_energy_minus"] = this->reactive_energy_minus->state;
-            }
-
-            if(this->timestamp != NULL)
-            {
-                root["timestamp"] = this->timestamp->state;
-            }
-// EVN Special
-            if(this->power_factor != NULL)
-            {
-                root["power_factor"] = this->power_factor->state;
-            }
-            if(this->meternumber != NULL)
-            {
-                root["meternumber"] = this->meternumber->state;
-            }
-
-        });
-    }*/
   }
 }
 
@@ -548,50 +475,6 @@ void DlmsMeterComponent::set_decryption_key(const uint8_t key[], size_t keyLengt
   memcpy(&this->key[0], &key[0], keyLength);
   this->keyLength = keyLength;
 }
-
-void DlmsMeterComponent::set_voltage_sensors(sensor::Sensor *voltage_l1, sensor::Sensor *voltage_l2,
-                                             sensor::Sensor *voltage_l3) {
-  this->voltage_l1 = voltage_l1;
-  this->voltage_l2 = voltage_l2;
-  this->voltage_l3 = voltage_l3;
-}
-void DlmsMeterComponent::set_current_sensors(sensor::Sensor *current_l1, sensor::Sensor *current_l2,
-                                             sensor::Sensor *current_l3) {
-  this->current_l1 = current_l1;
-  this->current_l2 = current_l2;
-  this->current_l3 = current_l3;
-}
-
-void DlmsMeterComponent::set_active_power_sensors(sensor::Sensor *active_power_plus,
-                                                  sensor::Sensor *active_power_minus) {
-  this->active_power_plus = active_power_plus;
-  this->active_power_minus = active_power_minus;
-}
-
-void DlmsMeterComponent::set_active_energy_sensors(sensor::Sensor *active_energy_plus,
-                                                   sensor::Sensor *active_energy_minus) {
-  this->active_energy_plus = active_energy_plus;
-  this->active_energy_minus = active_energy_minus;
-}
-
-void DlmsMeterComponent::set_reactive_energy_sensors(sensor::Sensor *reactive_energy_plus,
-                                                     sensor::Sensor *reactive_energy_minus) {
-  this->reactive_energy_plus = reactive_energy_plus;
-  this->reactive_energy_minus = reactive_energy_minus;
-}
-
-void DlmsMeterComponent::set_timestamp_sensor(text_sensor::TextSensor *timestamp) { this->timestamp = timestamp; }
-
-void DlmsMeterComponent::set_evnspecial_sensor(sensor::Sensor *power_factor, text_sensor::TextSensor *meternumber) {
-  this->power_factor = power_factor;
-  this->meternumber = meternumber;
-}
-
-// void DlmsMeterComponent::enable_mqtt(mqtt::MQTTClientComponent *mqtt_client, const char *topic)
-// {
-//     this->mqtt_client = mqtt_client;
-//     this->topic = topic;
-// }
 
 void DlmsMeterComponent::log_packet(std::vector<uint8_t> data) { ESP_LOGV(TAG, format_hex_pretty(data).c_str()); }
 
