@@ -55,9 +55,11 @@ struct MeterData {
   float active_energy_minus;    // Active energy put into grid
   float reactive_energy_plus;   // Reactive energy taken from grid
   float reactive_energy_minus;  // Reactive energy put into grid
+  std::string timestamp;        // Text sensor for the timestamp value
 
   // EVN
-  float power_factor;  // Power Factor
+  float power_factor;           // Power Factor
+  std::string meternumber;      // Text sensor for the meterNumber value
 };
 
 class DlmsMeterComponent : public Component, public uart::UARTDevice {
@@ -78,11 +80,13 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
 
 #define DLMS_METER_PUBLISH_TEXT_SENSOR(s) \
   if (this->s##_text_sensor_ != nullptr) \
-    s##_text_sensor_->publish_state(data.s.c_str());
+    s##_text_sensor_->publish_state(data.s);
+    // s##_text_sensor_->publish_state(data.s.c_str());
     DLMS_METER_TEXT_SENSOR_LIST(DLMS_METER_PUBLISH_TEXT_SENSOR, )
   }
 
   DLMS_METER_SENSOR_LIST(SUB_SENSOR, )
+  DLMS_METER_TEXT_SENSOR_LIST(SUB_TEXT_SENSOR, )
 
  private:
   std::vector<uint8_t> receiveBuffer;  // Stores the packet currently being received
@@ -96,10 +100,10 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   mbedtls_gcm_context aes;  // AES context used for decryption
 #endif
 
-  text_sensor::TextSensor *timestamp = NULL;  // Text sensor for the timestamp value
-
-  // EVN Special
-  text_sensor::TextSensor *meternumber = NULL;  // Text sensor for the meterNumber value
+  // text_sensor::TextSensor *timestamp = NULL;
+  //
+  // // EVN Special
+  // text_sensor::TextSensor *meternumber = NULL;
 
   uint16_t swap_uint16(uint16_t val);
   uint32_t swap_uint32(uint32_t val);

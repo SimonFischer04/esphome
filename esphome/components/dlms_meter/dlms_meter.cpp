@@ -388,7 +388,7 @@ void DlmsMeterComponent::loop() {
           dataLength = plaintext[currentPosition];
           currentPosition++;  // Advance past string length
 
-          if (codeType == CodeType::Timestamp && this->timestamp != NULL)  // Handle timestamp generation
+          if (codeType == CodeType::Timestamp)  // Handle timestamp generation
           {
             char timestamp[21];  // 0000-00-00T00:00:00Z
 
@@ -412,17 +412,17 @@ void DlmsMeterComponent::loop() {
 
             sprintf(timestamp, "%04u-%02u-%02uT%02u:%02u:%02uZ", year, month, day, hour, minute, second);
 
-            this->timestamp->publish_state(timestamp);
+            data.timestamp = timestamp;
           }
 #if defined(PROVIDER_EVN)
-          else if (codeType == CodeType::MeterNumber && this->meternumber != NULL) {
+          else if (codeType == CodeType::MeterNumber) {
             ESP_LOGV(TAG, "Constructing MeterNumber...");
             char meterNumber[13];  // 121110284568
 
             memcpy(meterNumber, &plaintext[currentPosition], dataLength);
             meterNumber[12] = '\0';
 
-            this->meternumber->publish_state(meterNumber);
+            data.meternumber = meterNumber;
           }
 #endif
 
