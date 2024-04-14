@@ -8,6 +8,9 @@ DEPENDENCIES = ["uart"]
 
 CONF_DLMS_METER_ID = "dlms_meter_id"
 CONF_DECRYPTION_KEY = "decryption_key"
+CONF_PROVIDER = "provider"
+
+PROVIDERS = {"generic": "PROVIDER_GENERIC", "evn": "PROVIDER_EVN"}
 
 dlms_meter_component_ns = cg.esphome_ns.namespace("dlms_meter")
 DlmsMeterComponent = dlms_meter_component_ns.class_(
@@ -38,6 +41,7 @@ CONFIG_SCHEMA = (
         {
             cv.GenerateID(): cv.declare_id(DlmsMeterComponent),
             cv.Required(CONF_DECRYPTION_KEY): validate_key,
+            cv.Optional(CONF_PROVIDER, "generic"): cv.enum(PROVIDERS, lower=True),
             cv.GenerateID(CONF_RAW_DATA_ID): cv.declare_id(cg.uint8),
         }
     )
@@ -55,3 +59,6 @@ async def to_code(config):
     rhs_key_bytes = [int(key_hex[i : i + 2], 16) for i in range(0, len(key_hex), 2)]
     key_array = cg.progmem_array(config[CONF_RAW_DATA_ID], rhs_key_bytes)
     cg.add(var.set_decryption_key(key_array, len(rhs_key_bytes)))
+
+    if CONF_PROVIDER in config:
+        cg.add_define(PROVIDERS[config[CONF_PROVIDER]])

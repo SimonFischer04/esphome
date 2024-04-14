@@ -9,8 +9,6 @@
 #include <bearssl/bearssl.h>
 #endif
 
-#define PROVIDER_EVN
-
 namespace esphome {
 namespace dlms_meter {
 
