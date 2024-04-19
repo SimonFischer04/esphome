@@ -12,6 +12,10 @@
 
 #include <vector>
 
+#ifndef METER_PROVIDER
+#define METER_PROVIDER ""
+#endif
+
 static const char *const DLMS_METER_VERSION = "0.9.1";
 static const char *const TAG = "dlms_meter";
 

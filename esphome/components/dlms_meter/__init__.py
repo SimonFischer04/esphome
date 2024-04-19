@@ -62,3 +62,4 @@ async def to_code(config):
 
     if CONF_PROVIDER in config:
         cg.add_define(PROVIDERS[config[CONF_PROVIDER]])
+        cg.add_define("METER_PROVIDER", config[CONF_PROVIDER])

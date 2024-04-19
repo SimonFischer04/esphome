@@ -19,7 +19,22 @@ void DlmsMeterComponent::setup() {
 }
 
 void DlmsMeterComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "DLMS Meter dump_config");
+  ESP_LOGCONFIG(TAG, "DLMS Meter:");
+  ESP_LOGCONFIG(TAG, "Meter Provider: %s", METER_PROVIDER);
+
+  // Verbose level prints decryption key!
+  ESP_LOGCONFIG(TAG, "Decryption key: (actual key only logged when log-level is VERY_VERBOSE)");
+  ESP_LOGCONFIG(TAG, "key-length: %d", this->keyLength);
+  ESP_LOGVV(TAG, "key: %s", format_hex_pretty(&this->key[0], this->keyLength).c_str());
+
+  ESP_LOGCONFIG(TAG, "readTimeout: %d", this->readTimeout);
+
+#define DLMS_METER_LOG_SENSOR(s) LOG_SENSOR("  ", #s, this->s##_sensor_);
+  DLMS_METER_SENSOR_LIST(DLMS_METER_LOG_SENSOR, )
+
+#define DLMS_METER_LOG_TEXT_SENSOR(s) LOG_TEXT_SENSOR("  ", #s, this->s##_text_sensor_);
+  DLMS_METER_TEXT_SENSOR_LIST(DLMS_METER_LOG_TEXT_SENSOR, )
+  
   this->check_uart_settings(2400);
 }
 
