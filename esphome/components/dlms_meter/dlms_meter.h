@@ -2,12 +2,21 @@
 
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
+#include "esphome/core/log.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/uart/uart.h"
 
+#include "mbus.h"
+#include "dlms.h"
+#include "obis.h"
+
 #if defined(ESP32)
 #include "mbedtls/gcm.h"
+#endif
+
+#if defined(ESP8266)
+#include <bearssl/bearssl.h>
 #endif
 
 #include <vector>
@@ -74,7 +83,7 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   void dump_config() override;
   void loop() override;
 
-  void set_decryption_key(const uint8_t *key, size_t keyLength);
+  void set_decryption_key(const uint8_t *decryption_key, size_t decryption_key_length);
 
   void publish_sensors(MeterData &data) {
 #define DLMS_METER_PUBLISH_SENSOR(s) \
@@ -92,22 +101,17 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   DLMS_METER_SENSOR_LIST(SUB_SENSOR, )
   DLMS_METER_TEXT_SENSOR_LIST(SUB_TEXT_SENSOR, )
 
- private:
-  std::vector<uint8_t> receiveBuffer;  // Stores the packet currently being received
-  unsigned long lastRead = 0;          // Timestamp when data was last read
-  int readTimeout = 100;               // Time to wait after last byte before considering data complete
+ protected:
+  std::vector<uint8_t> receive_buffer_;  // Stores the packet currently being received
+  unsigned long last_read_ = 0;          // Timestamp when data was last read
+  int read_timeout_ = 100;               // Time to wait after last byte before considering data complete
 
-  uint8_t key[16];   // Stores the decryption key
-  size_t keyLength;  // Stores the decryption key length (usually 16 bytes)
+  uint8_t decryption_key_[16];   // Stores the decryption key
+  size_t decryption_key_length_;  // Stores the decryption key length (usually 16 bytes)
 
 #if defined(ESP32)
   mbedtls_gcm_context aes;  // AES context used for decryption
 #endif
-
-  // text_sensor::TextSensor *timestamp = NULL;
-  //
-  // // EVN Special
-  // text_sensor::TextSensor *meternumber = NULL;
 
   uint16_t swap_uint16(uint16_t val);
   uint32_t swap_uint32(uint32_t val);
