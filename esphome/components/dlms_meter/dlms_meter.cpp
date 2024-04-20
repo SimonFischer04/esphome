@@ -184,8 +184,8 @@ void DlmsMeterComponent::loop() {
     mbedtls_gcm_init(&this->aes);
     mbedtls_gcm_setkey(&this->aes, MBEDTLS_CIPHER_ID_AES, this->decryption_key_, this->decryption_key_length_ * 8);
 
-    mbedtls_gcm_auth_decrypt(&this->aes, messageLength, iv, sizeof(iv), NULL, 0, NULL, 0,
-                             &mbusPayload[headerOffset + DLMS_PAYLOAD_OFFSET], plaintext);
+    mbedtls_gcm_auth_decrypt(&this->aes, message_length, iv, sizeof(iv), NULL, 0, NULL, 0,
+                             &mbus_payload[header_offset + DLMS_PAYLOAD_OFFSET], plaintext);
 
     mbedtls_gcm_free(&this->aes);
 #else
