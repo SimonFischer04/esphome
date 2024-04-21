@@ -1,10 +1,12 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart
-from esphome.const import CONF_ID, CONF_RAW_DATA_ID
+from esphome.const import CONF_ID, CONF_RAW_DATA_ID, PLATFORM_ESP8266, PLATFORM_ESP32
 
 CODEOWNERS = ["@SimonFischer04"]
+ESP_PLATFORMS = [PLATFORM_ESP8266, PLATFORM_ESP32]
 DEPENDENCIES = ["uart"]
+AUTO_LOAD = ["sensor", "text_sensor"]
 
 CONF_DLMS_METER_ID = "dlms_meter_id"
 CONF_DECRYPTION_KEY = "decryption_key"
