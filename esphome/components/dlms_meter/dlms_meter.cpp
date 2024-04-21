@@ -36,8 +36,6 @@ void DlmsMeterComponent::loop() {
     this->receive_buffer_.push_back(c);
 
     this->last_read_ = current_time;
-    // fix for ESPHOME 2022.12 -> added 10ms delay
-    delay(10);
   }
 
   if (!this->receive_buffer_.empty() && current_time - this->last_read_ > this->read_timeout_) {
