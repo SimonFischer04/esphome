@@ -1,11 +1,6 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome import pins
-from esphome.const import CONF_ANALOG, CONF_INPUT, CONF_NUMBER
-
-from esphome.core import CORE
+import esphome.codegen as cg
 from esphome.components.esp32 import get_esp32_variant
-from esphome.const import PLATFORM_ESP8266
 from esphome.components.esp32.const import (
     VARIANT_ESP32,
     VARIANT_ESP32C2,
@@ -15,14 +10,29 @@ from esphome.components.esp32.const import (
     VARIANT_ESP32S2,
     VARIANT_ESP32S3,
 )
+import esphome.config_validation as cv
+from esphome.const import CONF_ANALOG, CONF_INPUT, CONF_NUMBER, PLATFORM_ESP8266
+from esphome.core import CORE
 
 CODEOWNERS = ["@esphome/core"]
+
+adc_ns = cg.esphome_ns.namespace("adc")
+
+
+"""
+From the below patch versions (and 5.2+) ADC_ATTEN_DB_11 is deprecated and replaced with ADC_ATTEN_DB_12.
+4.4.7
+5.0.5
+5.1.3
+5.2+
+"""
 
 ATTENUATION_MODES = {
     "0db": cg.global_ns.ADC_ATTEN_DB_0,
     "2.5db": cg.global_ns.ADC_ATTEN_DB_2_5,
     "6db": cg.global_ns.ADC_ATTEN_DB_6,
-    "11db": cg.global_ns.ADC_ATTEN_DB_11,
+    "11db": adc_ns.ADC_ATTEN_DB_12_COMPAT,
+    "12db": adc_ns.ADC_ATTEN_DB_12_COMPAT,
     "auto": "auto",
 }
 
@@ -90,11 +100,11 @@ ESP32_VARIANT_ADC1_PIN_TO_CHANNEL = {
         6: adc1_channel_t.ADC1_CHANNEL_6,
     },
     VARIANT_ESP32H2: {
-        0: adc1_channel_t.ADC1_CHANNEL_0,
-        1: adc1_channel_t.ADC1_CHANNEL_1,
-        2: adc1_channel_t.ADC1_CHANNEL_2,
-        3: adc1_channel_t.ADC1_CHANNEL_3,
-        4: adc1_channel_t.ADC1_CHANNEL_4,
+        1: adc1_channel_t.ADC1_CHANNEL_0,
+        2: adc1_channel_t.ADC1_CHANNEL_1,
+        3: adc1_channel_t.ADC1_CHANNEL_2,
+        4: adc1_channel_t.ADC1_CHANNEL_3,
+        5: adc1_channel_t.ADC1_CHANNEL_4,
     },
 }
 

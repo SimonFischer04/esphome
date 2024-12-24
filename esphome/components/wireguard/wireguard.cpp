@@ -1,7 +1,5 @@
 #include "wireguard.h"
-
-#ifdef USE_ESP32
-
+#ifdef USE_WIREGUARD
 #include <cinttypes>
 #include <ctime>
 #include <functional>
@@ -11,26 +9,20 @@
 #include "esphome/core/time.h"
 #include "esphome/components/network/util.h"
 
-#include <esp_err.h>
-
 #include <esp_wireguard.h>
-
-// includes for resume/suspend wdt
-#if defined(USE_ESP_IDF)
-#include <esp_task_wdt.h>
-#if ESP_IDF_VERSION_MAJOR >= 5
-#include <spi_flash_mmap.h>
-#endif
-#elif defined(USE_ARDUINO)
-#include <esp32-hal.h>
-#endif
+#include <esp_wireguard_err.h>
 
 namespace esphome {
 namespace wireguard {
 
 static const char *const TAG = "wireguard";
 
-static const char *const LOGMSG_PEER_STATUS = "WireGuard remote peer is %s (latest handshake %s)";
+/*
+ * Cannot use `static const char*` for LOGMSG_PEER_STATUS on esp8266 platform
+ * because log messages in `Wireguard::update()` method fail.
+ */
+#define LOGMSG_PEER_STATUS "WireGuard remote peer is %s (latest handshake %s)"
+
 static const char *const LOGMSG_ONLINE = "online";
 static const char *const LOGMSG_OFFLINE = "offline";
 
@@ -45,7 +37,7 @@ void Wireguard::setup() {
   this->wg_config_.netmask = this->netmask_.c_str();
   this->wg_config_.persistent_keepalive = this->keepalive_;
 
-  if (this->preshared_key_.length() > 0)
+  if (!this->preshared_key_.empty())
     this->wg_config_.preshared_key = this->preshared_key_.c_str();
 
   this->publish_enabled_state();
@@ -145,7 +137,7 @@ void Wireguard::dump_config() {
   ESP_LOGCONFIG(TAG, "  Peer Port: " LOG_SECRET("%d"), this->peer_port_);
   ESP_LOGCONFIG(TAG, "  Peer Public Key: " LOG_SECRET("%s"), this->peer_public_key_.c_str());
   ESP_LOGCONFIG(TAG, "  Peer Pre-shared Key: " LOG_SECRET("%s"),
-                (this->preshared_key_.length() > 0 ? mask_key(this->preshared_key_).c_str() : "NOT IN USE"));
+                (!this->preshared_key_.empty() ? mask_key(this->preshared_key_).c_str() : "NOT IN USE"));
   ESP_LOGCONFIG(TAG, "  Peer Allowed IPs:");
   for (auto &allowed_ip : this->allowed_ips_) {
     ESP_LOGCONFIG(TAG, "    - %s/%s", std::get<0>(allowed_ip).c_str(), std::get<1>(allowed_ip).c_str());
@@ -257,20 +249,13 @@ void Wireguard::start_connection_() {
   }
 
   ESP_LOGD(TAG, "starting WireGuard connection...");
-
-  /*
-   * The function esp_wireguard_connect() contains a DNS resolution
-   * that could trigger the watchdog, so before it we suspend (or
-   * increase the time, it depends on the platform) the wdt and
-   * then we resume the normal timeout.
-   */
-  suspend_wdt();
-  ESP_LOGV(TAG, "executing esp_wireguard_connect");
   this->wg_connected_ = esp_wireguard_connect(&(this->wg_ctx_));
-  resume_wdt();
 
   if (this->wg_connected_ == ESP_OK) {
     ESP_LOGI(TAG, "WireGuard connection started");
+  } else if (this->wg_connected_ == ESP_ERR_RETRY) {
+    ESP_LOGD(TAG, "WireGuard is waiting for endpoint IP address to be available");
+    return;
   } else {
     ESP_LOGW(TAG, "cannot start WireGuard connection, error code %d", this->wg_connected_);
     return;
@@ -300,44 +285,8 @@ void Wireguard::stop_connection_() {
   }
 }
 
-void suspend_wdt() {
-#if defined(USE_ESP_IDF)
-#if ESP_IDF_VERSION_MAJOR >= 5
-  ESP_LOGV(TAG, "temporarily increasing wdt timeout to 15000 ms");
-  esp_task_wdt_config_t wdtc;
-  wdtc.timeout_ms = 15000;
-  wdtc.idle_core_mask = 0;
-  wdtc.trigger_panic = false;
-  esp_task_wdt_reconfigure(&wdtc);
-#else
-  ESP_LOGV(TAG, "temporarily increasing wdt timeout to 15 seconds");
-  esp_task_wdt_init(15, false);
-#endif
-#elif defined(USE_ARDUINO)
-  ESP_LOGV(TAG, "temporarily disabling the wdt");
-  disableLoopWDT();
-#endif
-}
-
-void resume_wdt() {
-#if defined(USE_ESP_IDF)
-#if ESP_IDF_VERSION_MAJOR >= 5
-  wdtc.timeout_ms = CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000;
-  esp_task_wdt_reconfigure(&wdtc);
-  ESP_LOGV(TAG, "wdt resumed with %" PRIu32 " ms timeout", wdtc.timeout_ms);
-#else
-  esp_task_wdt_init(CONFIG_ESP_TASK_WDT_TIMEOUT_S, false);
-  ESP_LOGV(TAG, "wdt resumed with %d seconds timeout", CONFIG_ESP_TASK_WDT_TIMEOUT_S);
-#endif
-#elif defined(USE_ARDUINO)
-  enableLoopWDT();
-  ESP_LOGV(TAG, "wdt resumed");
-#endif
-}
-
 std::string mask_key(const std::string &key) { return (key.substr(0, 5) + "[...]="); }
 
 }  // namespace wireguard
 }  // namespace esphome
-
-#endif  // USE_ESP32
+#endif

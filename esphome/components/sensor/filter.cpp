@@ -79,7 +79,7 @@ SkipInitialFilter::SkipInitialFilter(size_t num_to_ignore) : num_to_ignore_(num_
 optional<float> SkipInitialFilter::new_value(float value) {
   if (num_to_ignore_ > 0) {
     num_to_ignore_--;
-    ESP_LOGV(TAG, "SkipInitialFilter(%p)::new_value(%f) SKIPPING, %u left", this, value, num_to_ignore_);
+    ESP_LOGV(TAG, "SkipInitialFilter(%p)::new_value(%f) SKIPPING, %zu left", this, value, num_to_ignore_);
     return {};
   }
 
@@ -288,36 +288,36 @@ optional<float> LambdaFilter::new_value(float value) {
 }
 
 // OffsetFilter
-OffsetFilter::OffsetFilter(float offset) : offset_(offset) {}
+OffsetFilter::OffsetFilter(TemplatableValue<float> offset) : offset_(std::move(offset)) {}
 
-optional<float> OffsetFilter::new_value(float value) { return value + this->offset_; }
+optional<float> OffsetFilter::new_value(float value) { return value + this->offset_.value(); }
 
 // MultiplyFilter
-MultiplyFilter::MultiplyFilter(float multiplier) : multiplier_(multiplier) {}
+MultiplyFilter::MultiplyFilter(TemplatableValue<float> multiplier) : multiplier_(std::move(multiplier)) {}
 
-optional<float> MultiplyFilter::new_value(float value) { return value * this->multiplier_; }
+optional<float> MultiplyFilter::new_value(float value) { return value * this->multiplier_.value(); }
 
 // FilterOutValueFilter
-FilterOutValueFilter::FilterOutValueFilter(float value_to_filter_out) : value_to_filter_out_(value_to_filter_out) {}
+FilterOutValueFilter::FilterOutValueFilter(std::vector<TemplatableValue<float>> values_to_filter_out)
+    : values_to_filter_out_(std::move(values_to_filter_out)) {}
 
 optional<float> FilterOutValueFilter::new_value(float value) {
-  if (std::isnan(this->value_to_filter_out_)) {
-    if (std::isnan(value)) {
-      return {};
-    } else {
-      return value;
+  int8_t accuracy = this->parent_->get_accuracy_decimals();
+  float accuracy_mult = powf(10.0f, accuracy);
+  for (auto filter_value : this->values_to_filter_out_) {
+    if (std::isnan(filter_value.value())) {
+      if (std::isnan(value)) {
+        return {};
+      }
+      continue;
     }
-  } else {
-    int8_t accuracy = this->parent_->get_accuracy_decimals();
-    float accuracy_mult = powf(10.0f, accuracy);
-    float rounded_filter_out = roundf(accuracy_mult * this->value_to_filter_out_);
+    float rounded_filter_out = roundf(accuracy_mult * filter_value.value());
     float rounded_value = roundf(accuracy_mult * value);
     if (rounded_filter_out == rounded_value) {
       return {};
-    } else {
-      return value;
     }
   }
+  return value;
 }
 
 // ThrottleFilter
@@ -359,11 +359,15 @@ OrFilter::OrFilter(std::vector<Filter *> filters) : filters_(std::move(filters))
 OrFilter::PhiNode::PhiNode(OrFilter *or_parent) : or_parent_(or_parent) {}
 
 optional<float> OrFilter::PhiNode::new_value(float value) {
-  this->or_parent_->output(value);
+  if (!this->or_parent_->has_value_) {
+    this->or_parent_->output(value);
+    this->or_parent_->has_value_ = true;
+  }
 
   return {};
 }
 optional<float> OrFilter::new_value(float value) {
+  this->has_value_ = false;
   for (Filter *filter : this->filters_)
     filter->input(value);
 
@@ -379,11 +383,12 @@ void OrFilter::initialize(Sensor *parent, Filter *next) {
 
 // TimeoutFilter
 optional<float> TimeoutFilter::new_value(float value) {
-  this->set_timeout("timeout", this->time_period_, [this]() { this->output(this->value_); });
+  this->set_timeout("timeout", this->time_period_, [this]() { this->output(this->value_.value()); });
   return value;
 }
 
-TimeoutFilter::TimeoutFilter(uint32_t time_period, float new_value) : time_period_(time_period), value_(new_value) {}
+TimeoutFilter::TimeoutFilter(uint32_t time_period, TemplatableValue<float> new_value)
+    : time_period_(time_period), value_(std::move(new_value)) {}
 float TimeoutFilter::get_setup_priority() const { return setup_priority::HARDWARE; }
 
 // DebounceFilter
@@ -464,6 +469,14 @@ optional<float> RoundFilter::new_value(float value) {
   if (std::isfinite(value)) {
     float accuracy_mult = powf(10.0f, this->precision_);
     return roundf(accuracy_mult * value) / accuracy_mult;
+  }
+  return value;
+}
+
+RoundMultipleFilter::RoundMultipleFilter(float multiple) : multiple_(multiple) {}
+optional<float> RoundMultipleFilter::new_value(float value) {
+  if (std::isfinite(value)) {
+    return value - remainderf(value, this->multiple_);
   }
   return value;
 }

@@ -1,11 +1,11 @@
 #ifdef USE_ESP_IDF
 
 #include "uart_component_esp_idf.h"
+#include <cinttypes>
 #include "esphome/core/application.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
-#include <cinttypes>
 
 #ifdef USE_LOGGER
 #include "esphome/components/logger/logger.h"
@@ -60,16 +60,36 @@ uart_config_t IDFUARTComponent::get_config_() {
 
 void IDFUARTComponent::setup() {
   static uint8_t next_uart_num = 0;
+
 #ifdef USE_LOGGER
-  if (logger::global_logger->get_uart_num() == next_uart_num)
+  bool logger_uses_hardware_uart = true;
+
+#ifdef USE_LOGGER_USB_CDC
+  if (logger::global_logger->get_uart() == logger::UART_SELECTION_USB_CDC) {
+    // this is not a hardware UART, ignore it
+    logger_uses_hardware_uart = false;
+  }
+#endif  // USE_LOGGER_USB_CDC
+
+#ifdef USE_LOGGER_USB_SERIAL_JTAG
+  if (logger::global_logger->get_uart() == logger::UART_SELECTION_USB_SERIAL_JTAG) {
+    // this is not a hardware UART, ignore it
+    logger_uses_hardware_uart = false;
+  }
+#endif  // USE_LOGGER_USB_SERIAL_JTAG
+
+  if (logger_uses_hardware_uart && logger::global_logger->get_baud_rate() > 0 &&
+      logger::global_logger->get_uart_num() == next_uart_num) {
     next_uart_num++;
-#endif
-  if (next_uart_num >= UART_NUM_MAX) {
+  }
+#endif  // USE_LOGGER
+
+  if (next_uart_num >= SOC_UART_NUM) {
     ESP_LOGW(TAG, "Maximum number of UART components created already.");
     this->mark_failed();
     return;
   }
-  this->uart_num_ = next_uart_num++;
+  this->uart_num_ = static_cast<uart_port_t>(next_uart_num++);
   ESP_LOGCONFIG(TAG, "Setting up UART %u...", this->uart_num_);
 
   this->lock_ = xSemaphoreCreateMutex();

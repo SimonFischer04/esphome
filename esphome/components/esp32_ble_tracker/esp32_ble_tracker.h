@@ -2,6 +2,7 @@
 
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
+#include "esphome/core/defines.h"
 #include "esphome/core/helpers.h"
 
 #include <array>
@@ -10,9 +11,9 @@
 
 #ifdef USE_ESP32
 
+#include <esp_bt_defs.h>
 #include <esp_gap_ble_api.h>
 #include <esp_gattc_api.h>
-#include <esp_bt_defs.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -43,10 +44,10 @@ class ESPBLEiBeacon {
   ESPBLEiBeacon(const uint8_t *data);
   static optional<ESPBLEiBeacon> from_manufacturer_data(const ServiceData &data);
 
-  uint16_t get_major() { return ((this->beacon_data_.major & 0xFF) << 8) | (this->beacon_data_.major >> 8); }
-  uint16_t get_minor() { return ((this->beacon_data_.minor & 0xFF) << 8) | (this->beacon_data_.minor >> 8); }
+  uint16_t get_major() { return byteswap(this->beacon_data_.major); }
+  uint16_t get_minor() { return byteswap(this->beacon_data_.minor); }
   int8_t get_signal_power() { return this->beacon_data_.signal_power; }
-  ESPBTUUID get_uuid() { return ESPBTUUID::from_raw(this->beacon_data_.proximity_uuid); }
+  ESPBTUUID get_uuid() { return ESPBTUUID::from_raw_reversed(this->beacon_data_.proximity_uuid); }
 
  protected:
   struct {
@@ -84,6 +85,8 @@ class ESPBTDevice {
   const std::vector<ServiceData> &get_service_datas() const { return service_datas_; }
 
   const esp_ble_gap_cb_param_t::ble_scan_result_evt_param &get_scan_result() const { return scan_result_; }
+
+  bool resolve_irk(const uint8_t *irk) const;
 
   optional<ESPBLEiBeacon> get_ibeacon() const {
     for (auto &it : this->manufacturer_datas_) {
@@ -169,12 +172,13 @@ class ESPBTClient : public ESPBTDeviceListener {
                                    esp_ble_gattc_cb_param_t *param) = 0;
   virtual void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) = 0;
   virtual void connect() = 0;
+  virtual void disconnect() = 0;
   virtual void set_state(ClientState st) { this->state_ = st; }
   ClientState state() const { return state_; }
   int app_id;
 
  protected:
-  ClientState state_;
+  ClientState state_{ClientState::INIT};
 };
 
 class ESP32BLETracker : public Component,
@@ -225,7 +229,7 @@ class ESP32BLETracker : public Component,
   /// Called when a `ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT` event is received.
   void gap_scan_stop_complete_(const esp_ble_gap_cb_param_t::ble_scan_stop_cmpl_evt_param &param);
 
-  int app_id_;
+  int app_id_{0};
 
   /// Vector of addresses that have already been printed in print_bt_device_info
   std::vector<uint64_t> already_discovered_;
@@ -238,24 +242,28 @@ class ESP32BLETracker : public Component,
   uint32_t scan_duration_;
   uint32_t scan_interval_;
   uint32_t scan_window_;
-  uint8_t scan_start_fail_count_;
+  uint8_t scan_start_fail_count_{0};
   bool scan_continuous_;
   bool scan_active_;
-  bool scanner_idle_;
+  bool scanner_idle_{true};
   bool ble_was_disabled_{true};
   bool raw_advertisements_{false};
   bool parse_advertisements_{false};
   SemaphoreHandle_t scan_result_lock_;
   SemaphoreHandle_t scan_end_lock_;
   size_t scan_result_index_{0};
-#if CONFIG_SPIRAM
+#ifdef USE_PSRAM
   const static u_int8_t SCAN_RESULT_BUFFER_SIZE = 32;
 #else
   const static u_int8_t SCAN_RESULT_BUFFER_SIZE = 16;
-#endif  // CONFIG_SPIRAM
+#endif  // USE_PSRAM
   esp_ble_gap_cb_param_t::ble_scan_result_evt_param *scan_result_buffer_;
   esp_bt_status_t scan_start_failed_{ESP_BT_STATUS_SUCCESS};
   esp_bt_status_t scan_set_param_failed_{ESP_BT_STATUS_SUCCESS};
+  int connecting_{0};
+  int discovered_{0};
+  int searching_{0};
+  int disconnecting_{0};
 };
 
 // NOLINTNEXTLINE

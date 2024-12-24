@@ -1,24 +1,22 @@
-#include <regex>
-
-#include "helpers.h"
 #include "time.h"  // NOLINT
+#include "helpers.h"
+
+#include <cinttypes>
 
 namespace esphome {
 
-bool is_leap_year(uint32_t year) { return (year % 4) == 0 && ((year % 100) != 0 || (year % 400) == 0); }
-
 uint8_t days_in_month(uint8_t month, uint16_t year) {
   static const uint8_t DAYS_IN_MONTH[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  uint8_t days = DAYS_IN_MONTH[month];
-  if (month == 2 && is_leap_year(year))
+  if (month == 2 && (year % 4 == 0))
     return 29;
-  return days;
+  return DAYS_IN_MONTH[month];
 }
 
 size_t ESPTime::strftime(char *buffer, size_t buffer_len, const char *format) {
   struct tm c_tm = this->to_c_tm();
   return ::strftime(buffer, buffer_len, format, &c_tm);
 }
+
 ESPTime ESPTime::from_c_tm(struct tm *c_tm, time_t c_time) {
   ESPTime res{};
   res.second = uint8_t(c_tm->tm_sec);
@@ -33,6 +31,7 @@ ESPTime ESPTime::from_c_tm(struct tm *c_tm, time_t c_time) {
   res.timestamp = c_time;
   return res;
 }
+
 struct tm ESPTime::to_c_tm() {
   struct tm c_tm {};
   c_tm.tm_sec = this->second;
@@ -46,6 +45,7 @@ struct tm ESPTime::to_c_tm() {
   c_tm.tm_isdst = this->is_dst;
   return c_tm;
 }
+
 std::string ESPTime::strftime(const std::string &format) {
   std::string timestr;
   timestr.resize(format.size() * 4);
@@ -65,40 +65,53 @@ std::string ESPTime::strftime(const std::string &format) {
 }
 
 bool ESPTime::strptime(const std::string &time_to_parse, ESPTime &esp_time) {
-  // clang-format off
-  std::regex dt_regex(R"(^
-    (
-      (\d{4})-(\d{1,2})-(\d{1,2})
-      (?:\s(?=.+))
-    )?
-    (
-      (\d{1,2}):(\d{2})
-      (?::(\d{2}))?
-    )?
-  $)");
-  // clang-format on
+  uint16_t year;
+  uint8_t month;
+  uint8_t day;
+  uint8_t hour;
+  uint8_t minute;
+  uint8_t second;
+  int num;
 
-  std::smatch match;
-  if (std::regex_match(time_to_parse, match, dt_regex) == 0)
+  if (sscanf(time_to_parse.c_str(), "%04hu-%02hhu-%02hhu %02hhu:%02hhu:%02hhu %n", &year, &month, &day,  // NOLINT
+             &hour,                                                                                      // NOLINT
+             &minute,                                                                                    // NOLINT
+             &second, &num) == 6 &&                                                                      // NOLINT
+      num == time_to_parse.size()) {
+    esp_time.year = year;
+    esp_time.month = month;
+    esp_time.day_of_month = day;
+    esp_time.hour = hour;
+    esp_time.minute = minute;
+    esp_time.second = second;
+  } else if (sscanf(time_to_parse.c_str(), "%04hu-%02hhu-%02hhu %02hhu:%02hhu %n", &year, &month, &day,  // NOLINT
+                    &hour,                                                                               // NOLINT
+                    &minute, &num) == 5 &&                                                               // NOLINT
+             num == time_to_parse.size()) {
+    esp_time.year = year;
+    esp_time.month = month;
+    esp_time.day_of_month = day;
+    esp_time.hour = hour;
+    esp_time.minute = minute;
+    esp_time.second = 0;
+  } else if (sscanf(time_to_parse.c_str(), "%02hhu:%02hhu:%02hhu %n", &hour, &minute, &second, &num) == 3 &&  // NOLINT
+             num == time_to_parse.size()) {
+    esp_time.hour = hour;
+    esp_time.minute = minute;
+    esp_time.second = second;
+  } else if (sscanf(time_to_parse.c_str(), "%02hhu:%02hhu %n", &hour, &minute, &num) == 2 &&  // NOLINT
+             num == time_to_parse.size()) {
+    esp_time.hour = hour;
+    esp_time.minute = minute;
+    esp_time.second = 0;
+  } else if (sscanf(time_to_parse.c_str(), "%04hu-%02hhu-%02hhu %n", &year, &month, &day, &num) == 3 &&  // NOLINT
+             num == time_to_parse.size()) {
+    esp_time.year = year;
+    esp_time.month = month;
+    esp_time.day_of_month = day;
+  } else {
     return false;
-
-  if (match[1].matched) {  // Has date parts
-
-    esp_time.year = parse_number<uint16_t>(match[2].str()).value_or(0);
-    esp_time.month = parse_number<uint8_t>(match[3].str()).value_or(0);
-    esp_time.day_of_month = parse_number<uint8_t>(match[4].str()).value_or(0);
   }
-  if (match[5].matched) {  // Has time parts
-
-    esp_time.hour = parse_number<uint8_t>(match[6].str()).value_or(0);
-    esp_time.minute = parse_number<uint8_t>(match[7].str()).value_or(0);
-    if (match[8].matched) {
-      esp_time.second = parse_number<uint8_t>(match[8].str()).value_or(0);
-    } else {
-      esp_time.second = 0;
-    }
-  }
-
   return true;
 }
 
@@ -129,6 +142,7 @@ void ESPTime::increment_second() {
     this->year++;
   }
 }
+
 void ESPTime::increment_day() {
   this->timestamp += 86400;
 
@@ -146,23 +160,22 @@ void ESPTime::increment_day() {
     this->year++;
   }
 }
+
 void ESPTime::recalc_timestamp_utc(bool use_day_of_year) {
   time_t res = 0;
-
   if (!this->fields_in_range()) {
     this->timestamp = -1;
     return;
   }
 
   for (int i = 1970; i < this->year; i++)
-    res += is_leap_year(i) ? 366 : 365;
+    res += (i % 4 == 0) ? 366 : 365;
 
   if (use_day_of_year) {
     res += this->day_of_year - 1;
   } else {
     for (int i = 1; i < this->month; i++)
       res += days_in_month(i, this->year);
-
     res += this->day_of_month - 1;
   }
 
@@ -173,6 +186,19 @@ void ESPTime::recalc_timestamp_utc(bool use_day_of_year) {
   res *= 60;
   res += this->second;
   this->timestamp = res;
+}
+
+void ESPTime::recalc_timestamp_local() {
+  struct tm tm;
+
+  tm.tm_year = this->year - 1900;
+  tm.tm_mon = this->month - 1;
+  tm.tm_mday = this->day_of_month;
+  tm.tm_hour = this->hour;
+  tm.tm_min = this->minute;
+  tm.tm_sec = this->second;
+
+  this->timestamp = mktime(&tm);
 }
 
 int32_t ESPTime::timezone_offset() {

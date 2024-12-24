@@ -1,22 +1,12 @@
 #include "sntp_component.h"
 #include "esphome/core/log.h"
 
-#if defined(USE_ESP32) || defined(USE_LIBRETINY)
-#include "lwip/apps/sntp.h"
 #ifdef USE_ESP_IDF
 #include "esp_sntp.h"
-#endif
-#endif
-#ifdef USE_ESP8266
+#elif USE_ESP8266
 #include "sntp.h"
-#endif
-#ifdef USE_RP2040
+#else
 #include "lwip/apps/sntp.h"
-#endif
-
-// Yes, the server names are leaked, but that's fine.
-#ifdef CLANG_TIDY
-#define strdup(x) (const_cast<char *>(x))
 #endif
 
 namespace esphome {
@@ -25,41 +15,38 @@ namespace sntp {
 static const char *const TAG = "sntp";
 
 void SNTPComponent::setup() {
-#ifndef USE_HOST
   ESP_LOGCONFIG(TAG, "Setting up SNTP...");
-#if defined(USE_ESP32) || defined(USE_LIBRETINY)
-  if (sntp_enabled()) {
-    sntp_stop();
+#if defined(USE_ESP_IDF)
+  if (esp_sntp_enabled()) {
+    esp_sntp_stop();
   }
-  sntp_setoperatingmode(SNTP_OPMODE_POLL);
-#endif
-#ifdef USE_ESP8266
+  esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+  size_t i = 0;
+  for (auto &server : this->servers_) {
+    esp_sntp_setservername(i++, server.c_str());
+  }
+  esp_sntp_set_sync_interval(this->get_update_interval());
+  esp_sntp_init();
+#else
   sntp_stop();
-#endif
+  sntp_setoperatingmode(SNTP_OPMODE_POLL);
 
-  sntp_setservername(0, strdup(this->server_1_.c_str()));
-  if (!this->server_2_.empty()) {
-    sntp_setservername(1, strdup(this->server_2_.c_str()));
+  size_t i = 0;
+  for (auto &server : this->servers_) {
+    sntp_setservername(i++, server.c_str());
   }
-  if (!this->server_3_.empty()) {
-    sntp_setservername(2, strdup(this->server_3_.c_str()));
-  }
-#ifdef USE_ESP_IDF
-  sntp_set_sync_interval(this->get_update_interval());
-#endif
-
   sntp_init();
 #endif
 }
 void SNTPComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "SNTP Time:");
-  ESP_LOGCONFIG(TAG, "  Server 1: '%s'", this->server_1_.c_str());
-  ESP_LOGCONFIG(TAG, "  Server 2: '%s'", this->server_2_.c_str());
-  ESP_LOGCONFIG(TAG, "  Server 3: '%s'", this->server_3_.c_str());
-  ESP_LOGCONFIG(TAG, "  Timezone: '%s'", this->timezone_.c_str());
+  size_t i = 0;
+  for (auto &server : this->servers_) {
+    ESP_LOGCONFIG(TAG, "  Server %zu: '%s'", i++, server.c_str());
+  }
 }
 void SNTPComponent::update() {
-#if !defined(USE_ESP_IDF) && !defined(USE_HOST)
+#if !defined(USE_ESP_IDF)
   // force resync
   if (sntp_enabled()) {
     sntp_stop();
