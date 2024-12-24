@@ -8,12 +8,15 @@ namespace remote_base {
 
 static const char *const TAG = "remote_base";
 
-#ifdef USE_ESP32
+#if defined(USE_ESP32) && ESP_IDF_VERSION_MAJOR < 5
 RemoteRMTChannel::RemoteRMTChannel(uint8_t mem_block_num) : mem_block_num_(mem_block_num) {
   static rmt_channel_t next_rmt_channel = RMT_CHANNEL_0;
   this->channel_ = next_rmt_channel;
   next_rmt_channel = rmt_channel_t(int(next_rmt_channel) + mem_block_num);
 }
+
+RemoteRMTChannel::RemoteRMTChannel(rmt_channel_t channel, uint8_t mem_block_num)
+    : channel_(channel), mem_block_num_(mem_block_num) {}
 
 void RemoteRMTChannel::config_rmt(rmt_config_t &rmt) {
   if (rmt_channel_t(int(this->channel_) + this->mem_block_num_) > RMT_CHANNEL_MAX) {
@@ -105,18 +108,18 @@ void RemoteReceiverBase::register_dumper(RemoteReceiverDumperBase *dumper) {
 
 void RemoteReceiverBase::call_listeners_() {
   for (auto *listener : this->listeners_)
-    listener->on_receive(RemoteReceiveData(this->temp_, this->tolerance_));
+    listener->on_receive(RemoteReceiveData(this->temp_, this->tolerance_, this->tolerance_mode_));
 }
 
 void RemoteReceiverBase::call_dumpers_() {
   bool success = false;
   for (auto *dumper : this->dumpers_) {
-    if (dumper->dump(RemoteReceiveData(this->temp_, this->tolerance_)))
+    if (dumper->dump(RemoteReceiveData(this->temp_, this->tolerance_, this->tolerance_mode_)))
       success = true;
   }
   if (!success) {
     for (auto *dumper : this->secondary_dumpers_)
-      dumper->dump(RemoteReceiveData(this->temp_, this->tolerance_));
+      dumper->dump(RemoteReceiveData(this->temp_, this->tolerance_, this->tolerance_mode_));
   }
 }
 
