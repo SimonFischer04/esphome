@@ -12,7 +12,7 @@ CONF_DLMS_METER_ID = "dlms_meter_id"
 CONF_DECRYPTION_KEY = "decryption_key"
 CONF_PROVIDER = "provider"
 
-PROVIDERS = {"generic": "PROVIDER_GENERIC", "evn": "PROVIDER_EVN"}
+PROVIDERS = {"generic": "PROVIDER_GENERIC", "netznoe": "PROVIDER_NETZNOE"}
 
 dlms_meter_component_ns = cg.esphome_ns.namespace("dlms_meter")
 DlmsMeterComponent = dlms_meter_component_ns.class_(

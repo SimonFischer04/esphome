@@ -117,7 +117,7 @@ void DlmsMeterComponent::loop() {
     uint16_t message_length = mbus_payload[DLMS_LENGTH_OFFSET];
     int header_offset = 0;
 
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
     // for some reason EVN seems to set the standard "length" field to 0x81 and then the actual length is in the next
     // byte
     if (message_length == 0x81 && mbus_payload[DLMS_LENGTH_OFFSET + 1] == 0xF8 &&
@@ -222,7 +222,7 @@ void DlmsMeterComponent::loop() {
       memcpy(&obis_code[0], &plaintext[current_position + OBIS_CODE_OFFSET],
              obis_code_length);  // Copy OBIS code to array
 
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
       bool timestampFound = false;
       bool meterNumberFound = false;
       // Do not advance Position when reading the Timestamp at DECODER_START_OFFSET
@@ -270,7 +270,7 @@ void DlmsMeterComponent::loop() {
         } else if (memcmp(&obis_code[OBIS_C], ESPDM_ACTIVE_POWER_MINUS, 2) == 0) {
           code_type = CodeType::ActivePowerMinus;
         }
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
         else if (memcmp(&obis_code[OBIS_C], ESPDM_POWER_FACTOR, 2) == 0) {
           code_type = CodeType::PowerFactor;
         }
@@ -302,7 +302,7 @@ void DlmsMeterComponent::loop() {
           ESP_LOGW(TAG, "OBIS: Unsupported OBIS code OBIS_C: %d, OBIS_D: %d", obis_code[OBIS_C], obis_code[OBIS_D]);
         }
       }
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
       // Needed so the Timestamp at DECODER_START_OFFSET gets read correctly
       // as it doesn't have an obisMedium
       else if (timestampFound == true) {
@@ -375,7 +375,7 @@ void DlmsMeterComponent::loop() {
           else if (code_type == CodeType::CurrentL3)
             data.current_l3 = float_value;
 
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
           else if (code_type == CodeType::PowerFactor)
             data.power_factor = float_value / 1000.0f;
 #endif
@@ -414,7 +414,7 @@ void DlmsMeterComponent::loop() {
 
             data.timestamp = timestamp;
           }
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
           else if (code_type == CodeType::MeterNumber) {
             ESP_LOGV(TAG, "Constructing MeterNumber...");
             char meterNumber[13];  // 121110284568
@@ -435,7 +435,7 @@ void DlmsMeterComponent::loop() {
 
       current_position += data_length;  // Skip data length
 
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
       // Don't skip the break on the first Timestamp, as there's none
       if (timestampFound == false) {
         current_position += 2;  // Skip break after data
@@ -446,7 +446,7 @@ void DlmsMeterComponent::loop() {
 
       if (plaintext[current_position] == 0x0F) {  // There is still additional data for this type, skip it
         // on EVN Meters the additional data (no additional Break) is only 3 Bytes + 1 Byte for the "there is data" Byte
-#if defined(PROVIDER_EVN)
+#if defined(PROVIDER_NETZNOE)
         current_position += 4;  // Skip additional data and additional break; this will jump out of bounds on last frame
 #else
         current_position += 6;  // Skip additional data and additional break; this will jump out of bounds on last frame
