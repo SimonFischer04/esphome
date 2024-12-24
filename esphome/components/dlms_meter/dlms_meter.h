@@ -71,8 +71,8 @@ struct MeterData {
   std::string timestamp;        // Text sensor for the timestamp value
 
   // EVN
-  float power_factor;           // Power Factor
-  std::string meternumber;      // Text sensor for the meterNumber value
+  float power_factor;       // Power Factor
+  std::string meternumber;  // Text sensor for the meterNumber value
 };
 
 class DlmsMeterComponent : public Component, public uart::UARTDevice {
@@ -106,17 +106,17 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
   unsigned long last_read_ = 0;          // Timestamp when data was last read
   int read_timeout_ = 1000;              // Time to wait after last byte before considering data complete
 
-  uint8_t decryption_key_[16];   // Stores the decryption key
+  uint8_t decryption_key_[16];    // Stores the decryption key
   size_t decryption_key_length_;  // Stores the decryption key length (usually 16 bytes)
 
 #if defined(ESP32)
-  mbedtls_gcm_context aes;  // AES context used for decryption
+  mbedtls_gcm_context aes_;  // AES context used for decryption
 #endif
 
-  uint16_t swap_uint16(uint16_t val);
-  uint32_t swap_uint32(uint32_t val);
-  void log_packet(std::vector<uint8_t> data);
-  void abort();
+  uint16_t swap_uint16_(uint16_t val);
+  uint32_t swap_uint32_(uint32_t val);
+  void log_packet_(const std::vector<uint8_t> &data);
+  void abort_();
 };
 
 }  // namespace dlms_meter
