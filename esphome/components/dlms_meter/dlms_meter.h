@@ -103,7 +103,7 @@ class DlmsMeterComponent : public Component, public uart::UARTDevice {
 
  protected:
   std::vector<uint8_t> receive_buffer_;  // Stores the packet currently being received
-  uint32_t last_read_ = 0;          // Timestamp when data was last read
+  uint32_t last_read_ = 0;               // Timestamp when data was last read
   int read_timeout_ = 1000;              // Time to wait after last byte before considering data complete
 
   uint8_t decryption_key_[16];    // Stores the decryption key
