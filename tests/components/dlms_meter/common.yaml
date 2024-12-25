@@ -25,10 +25,6 @@ sensor:
       name: "Active energy taken from grid"
     active_energy_minus:
       name: "Active energy put into grid"
-    reactive_energy_plus:
-      name: "Reactive energy taken from grid"
-    reactive_energy_minus:
-      name: "Reactive energy put into grid"
 
 text_sensor:
   - platform: dlms_meter
