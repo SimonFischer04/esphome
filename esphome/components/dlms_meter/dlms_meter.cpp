@@ -284,7 +284,7 @@ void DlmsMeterComponent::loop() {
         }
 #if defined(PROVIDER_NETZNOE)
         else if (memcmp(&obis_code[OBIS_C], ESPDM_POWER_FACTOR, 2) == 0) {
-          code_type = CodeType::PowerFactor;
+          code_type = CodeType::POWER_FACTOR;
         }
 #endif
 
@@ -319,10 +319,10 @@ void DlmsMeterComponent::loop() {
       // as it doesn't have an obisMedium
       else if (timestampFound == true) {
         ESP_LOGV(TAG, "Found Timestamp without obisMedium");
-        code_type = CodeType::Timestamp;
+        code_type = CodeType::TIMESTAMP;
       } else if (meterNumberFound == true) {
         ESP_LOGV(TAG, "Found MeterNumber without obisMedium");
-        code_type = CodeType::MeterNumber;
+        code_type = CodeType::METER_NUMBER;
       }
 #endif
 
@@ -392,7 +392,7 @@ void DlmsMeterComponent::loop() {
           }
 
 #if defined(PROVIDER_NETZNOE)
-          else if (code_type == CodeType::PowerFactor)
+          else if (code_type == CodeType::POWER_FACTOR)
             data.power_factor = float_value / 1000.0f;
 #endif
 
@@ -431,7 +431,7 @@ void DlmsMeterComponent::loop() {
             data.timestamp = timestamp;
           }
 #if defined(PROVIDER_NETZNOE)
-          else if (code_type == CodeType::MeterNumber) {
+          else if (code_type == CodeType::METER_NUMBER) {
             ESP_LOGV(TAG, "Constructing MeterNumber...");
             char meterNumber[13];  // 121110284568
 
