@@ -27,7 +27,7 @@ void DlmsMeterComponent::dump_config() {
 }
 
 void DlmsMeterComponent::loop() {
-  unsigned long current_time = millis();
+  uint32_t current_time = millis();
 
   while (available())  // Read while data is available
   {
@@ -55,14 +55,16 @@ void DlmsMeterComponent::loop() {
       if (this->receive_buffer_[frame_offset + MBUS_START1_OFFSET] != 0x68 ||
           this->receive_buffer_[frame_offset + MBUS_START2_OFFSET] != 0x68) {
         ESP_LOGE(TAG, "MBUS: Start bytes do not match");
-        return abort_();
+        abort_();
+        return;
       }
 
       // Both length bytes must be identical
       if (this->receive_buffer_[frame_offset + MBUS_LENGTH1_OFFSET] !=
           this->receive_buffer_[frame_offset + MBUS_LENGTH2_OFFSET]) {
         ESP_LOGE(TAG, "MBUS: Length bytes do not match");
-        return abort_();
+        abort_();
+        return;
       }
 
       uint8_t frame_length = this->receive_buffer_[frame_offset + MBUS_LENGTH1_OFFSET];  // Get length of this frame
@@ -70,13 +72,15 @@ void DlmsMeterComponent::loop() {
       // Check if received data is enough for the given frame length
       if (this->receive_buffer_.size() - frame_offset < frame_length + 3) {
         ESP_LOGE(TAG, "MBUS: Frame too big for received data");
-        return abort_();
+        abort_();
+        return;
       }
 
       if (this->receive_buffer_[frame_offset + frame_length + MBUS_HEADER_INTRO_LENGTH + MBUS_FOOTER_LENGTH - 1] !=
           0x16) {
         ESP_LOGE(TAG, "MBUS: Invalid stop byte");
-        return abort_();
+        abort_();
+        return;
       }
 
       mbus_payload.insert(mbus_payload.end(), &this->receive_buffer_[frame_offset + MBUS_FULL_HEADER_LENGTH],
@@ -97,13 +101,15 @@ void DlmsMeterComponent::loop() {
     if (mbus_payload.size() < 20)  // If the payload is too short we need to abort
     {
       ESP_LOGE(TAG, "DLMS: Payload too short");
-      return abort_();
+      abort_();
+      return;
     }
 
     if (mbus_payload[DLMS_CIPHER_OFFSET] != 0xDB)  // Only general-glo-ciphering is supported (0xDB)
     {
       ESP_LOGE(TAG, "DLMS: Unsupported cipher");
-      return abort_();
+      abort_();
+      return;
     }
 
     uint8_t systitle_length = mbus_payload[DLMS_SYST_OFFSET];
@@ -111,7 +117,8 @@ void DlmsMeterComponent::loop() {
     if (systitle_length != 0x08)  // Only system titles with length of 8 are supported
     {
       ESP_LOGE(TAG, "DLMS: Unsupported system title length");
-      return abort_();
+      abort_();
+      return;
     }
 
     uint16_t message_length = mbus_payload[DLMS_LENGTH_OFFSET];
@@ -145,7 +152,8 @@ void DlmsMeterComponent::loop() {
     if (mbus_payload.size() - DLMS_HEADER_LENGTH - header_offset != message_length) {
       ESP_LOGV(TAG, "lengths: %d, %d, %d, %d", mbus_payload.size(), DLMS_HEADER_LENGTH, header_offset, message_length);
       ESP_LOGE(TAG, "DLMS: Message has invalid length");
-      return abort_();
+      abort_();
+      return;
     }
 
     if (mbus_payload[header_offset + DLMS_SECBYTE_OFFSET] != 0x21 &&
@@ -153,7 +161,8 @@ void DlmsMeterComponent::loop() {
             0x20)  // Only certain security suite is supported (0x21 || 0x20)
     {
       ESP_LOGE(TAG, "DLMS: Unsupported security control byte");
-      return abort_();
+      abort_();
+      return;
     }
 
     // Decryption
@@ -171,13 +180,13 @@ void DlmsMeterComponent::loop() {
 
 #if defined(ESP8266)
     memcpy(plaintext, &mbus_payload[header_offset + DLMS_PAYLOAD_OFFSET], message_length);
-    br_gcm_context gcmCtx;
+    br_gcm_context gcm_ctx;
     br_aes_ct_ctr_keys bc;
     br_aes_ct_ctr_init(&bc, this->decryption_key_, this->decryption_key_length_);
-    br_gcm_init(&gcmCtx, &bc.vtable, br_ghash_ctmul32);
-    br_gcm_reset(&gcmCtx, iv, sizeof(iv));
-    br_gcm_flip(&gcmCtx);
-    br_gcm_run(&gcmCtx, 0, plaintext, message_length);
+    br_gcm_init(&gcm_ctx, &bc.vtable, br_ghash_ctmul32);
+    br_gcm_reset(&gcm_ctx, iv, sizeof(iv));
+    br_gcm_flip(&gcm_ctx);
+    br_gcm_run(&gcm_ctx, 0, plaintext, message_length);
 #elif defined(ESP32)
     mbedtls_gcm_init(&this->aes_);
     mbedtls_gcm_setkey(&this->aes_, MBEDTLS_CIPHER_ID_AES, this->decryption_key_, this->decryption_key_length_ * 8);
@@ -195,7 +204,8 @@ void DlmsMeterComponent::loop() {
 
     if (plaintext[0] != 0x0F || plaintext[5] != 0x0C) {
       ESP_LOGE(TAG, "OBIS: Packet was decrypted but data is invalid");
-      return abort_();
+      abort_();
+      return;
     }
 
     // Decoding
@@ -208,14 +218,16 @@ void DlmsMeterComponent::loop() {
     do {
       if (plaintext[current_position + OBIS_TYPE_OFFSET] != DataType::OCTET_STRING) {
         ESP_LOGE(TAG, "OBIS: Unsupported OBIS header type: %x", plaintext[current_position + OBIS_TYPE_OFFSET]);
-        return abort_();
+        abort_();
+        return;
       }
 
       uint8_t obis_code_length = plaintext[current_position + OBIS_LENGTH_OFFSET];
 
       if (obis_code_length != 0x06 && obis_code_length != 0x0C) {
         ESP_LOGE(TAG, "OBIS: Unsupported OBIS header length: %x", obis_code_length);
-        return abort_();
+        abort_();
+        return;
       }
 
       uint8_t obis_code[obis_code_length];
@@ -316,7 +328,8 @@ void DlmsMeterComponent::loop() {
 
       else {
         ESP_LOGE(TAG, "OBIS: Unsupported OBIS medium: %x", obis_code[OBIS_A]);
-        return abort_();
+        abort_();
+        return;
       }
 
       uint16_t uint16_value;
@@ -432,8 +445,8 @@ void DlmsMeterComponent::loop() {
           break;
         default:
           ESP_LOGE(TAG, "OBIS: Unsupported OBIS data type: %x", data_type);
-          return abort_();
-          break;
+          abort_();
+          return;
       }
 
       current_position += data_length;  // Skip data length
