@@ -3,9 +3,10 @@ dlms_meter:
   provider: netznoe                                   # (optional) key - only set if using evn
 
 sensor:
-  # EVN
-  power_factor:
-    name: "Power Factor"
+  - platform: dlms_meter
+    # EVN
+    power_factor:
+      name: "Power Factor"
 
 text_sensor:
   - platform: dlms_meter
